@@ -2,84 +2,71 @@
 
 namespace Ddeboer\Vatin\Vies;
 
-use SoapFault;
+use Ddeboer\Vatin\Exception\ServiceUnreachableException;
 use Ddeboer\Vatin\Exception\ViesException;
+use Ddeboer\Vatin\Exception\ViesExceptionInterface;
+use Ddeboer\Vatin\Vies\Response\CheckVatResponse;
 
 /**
- * A client for the VIES SOAP web service
+ * Default client for the VIES SOAP web service
  */
-class Client
+final class Client implements ClientInterface
 {
-    /**
-     * URL to WSDL
-     *
-     * @var string
-     */
-    private $wsdl = 'https://ec.europa.eu/taxation_customs/vies/checkVatService.wsdl';
-
-    /**
-     * SOAP client
-     *
-     * @var \SoapClient
-     */
-    private $soapClient;
+    private const DEFAULT_WSDL = 'https://ec.europa.eu/taxation_customs/vies/checkVatService.wsdl';
 
     /**
      * SOAP classmap
      *
-     * @var array
+     * @var array<string, class-string>
      */
-    private $classmap = [
-        'checkVatResponse' => 'Ddeboer\Vatin\Vies\Response\CheckVatResponse'
+    private const CLASS_MAP = [
+        'checkVatResponse' => CheckVatResponse::class,
     ];
+
+    /**
+     * SOAP client
+     */
+    private ?\SoapClient $soapClient = null;
 
     /**
      * Constructor
      *
-     * @param string|null $wsdl URL to WSDL
+     * @param string $wsdl URL to WSDL
      */
-    public function __construct($wsdl = null)
-    {
-        if ($wsdl) {
-            $this->wsdl = $wsdl;
-        }
+    public function __construct(
+        private readonly string $wsdl = self::DEFAULT_WSDL
+    ) {
     }
 
-    /**
-     * Check VAT
-     *
-     * @param string $countryCode Country code
-     * @param string $vatNumber   VAT number
-     *
-     * @return Response\CheckVatResponse
-     * @throws ViesException
-     */
-    public function checkVat($countryCode, $vatNumber)
+    public function checkVat(string $countryCode, string $vatNumber): Response\CheckVatResponse
     {
         try {
-            return $this->getSoapClient()->checkVat(
+            // silenced error because exceptions are thrown according to the client configuration
+            $client = @$this->getSoapClient();
+
+            return $client->checkVat(
                 [
                     'countryCode' => $countryCode,
                     'vatNumber' => $vatNumber
                 ]
             );
-        } catch (SoapFault $e) {
-            throw new ViesException('Error communicating with VIES service', 0, $e);
+        } catch (\SoapFault $e) {
+            throw $this->buildExceptionFromSoapFault($e);
         }
     }
 
     /**
-     * Get SOAP client
+     * @return \SoapClient a single instance of the local soap client
      *
-     * @return \SoapClient
+     * @throws \SoapFault
      */
-    private function getSoapClient()
+    private function getSoapClient(): \SoapClient
     {
         if (null === $this->soapClient) {
             $this->soapClient = new \SoapClient(
                 $this->wsdl,
                 [
-                    'classmap' => $this->classmap,
+                    'classmap' => self::CLASS_MAP,
                     'user_agent' => 'Mozilla', // the request fails unless a (dummy) user agent is specified
                     'exceptions' => true,
                 ]
@@ -87,5 +74,14 @@ class Client
         }
 
         return $this->soapClient;
+    }
+
+    private function buildExceptionFromSoapFault(\SoapFault $e): ViesExceptionInterface
+    {
+        if (str_contains($e->faultstring, 'failed to load')) {
+            return new ServiceUnreachableException($e);
+        }
+
+        return new ViesException($e);
     }
 }

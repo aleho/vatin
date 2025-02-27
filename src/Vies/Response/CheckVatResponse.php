@@ -2,51 +2,22 @@
 
 namespace Ddeboer\Vatin\Vies\Response;
 
-class CheckVatResponse
+final class CheckVatResponse
 {
-    private $countryCode;
-
-    private $vatNumber;
-
-    private $requestDate;
-
-    private $valid;
-
-    private $name;
-
-    private $address;
-
-    public function getCountryCode()
-    {
-        return $this->countryCode;
+    public function __construct(
+        public readonly string $countryCode,
+        public readonly string $vatNumber,
+        public readonly \DateTimeImmutable $date,
+        public readonly bool $valid,
+        public readonly ?string $name,
+        public readonly ?string $address,
+    ) {
     }
 
-    public function getVatNumber()
+    public function __set(string $name, mixed $value): void
     {
-        return $this->vatNumber;
-    }
-
-    public function getRequestDate()
-    {
-        if (!$this->requestDate instanceof \DateTime) {
-            $this->requestDate = new \DateTime($this->requestDate);
+        if ('requestDate' === $name && is_string($value)) {
+            $this->date = new \DateTimeImmutable($value);
         }
-
-        return $this->requestDate;
-    }
-
-    public function isValid()
-    {
-        return $this->valid;
-    }
-
-    public function getName()
-    {
-        return $this->name;
-    }
-
-    public function getAddress()
-    {
-        return $this->address;
     }
 }
