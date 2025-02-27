@@ -2,7 +2,13 @@
 
 namespace Ddeboer\Vatin\Vies;
 
+use Ddeboer\Vatin\Exception\InvalidInputException;
+use Ddeboer\Vatin\Exception\MaxConcurrentRequestsException;
+use Ddeboer\Vatin\Exception\MaxConcurrentStateRequestsException;
+use Ddeboer\Vatin\Exception\ServiceUnavailableException;
 use Ddeboer\Vatin\Exception\ServiceUnreachableException;
+use Ddeboer\Vatin\Exception\StateServiceUnavailableException;
+use Ddeboer\Vatin\Exception\TimeoutException;
 use Ddeboer\Vatin\Exception\ViesException;
 use Ddeboer\Vatin\Exception\ViesExceptionInterface;
 use Ddeboer\Vatin\Vies\Response\CheckVatResponse;
@@ -82,6 +88,14 @@ final class Client implements ClientInterface
             return new ServiceUnreachableException($e);
         }
 
-        return new ViesException($e);
+        return match($e->faultstring) {
+            'INVALID_INPUT' => new InvalidInputException($e),
+            'GLOBAL_MAX_CONCURRENT_REQ' => new MaxConcurrentRequestsException($e),
+            'MS_MAX_CONCURRENT_REQ' => new MaxConcurrentStateRequestsException($e),
+            'SERVICE_UNAVAILABLE' => new ServiceUnavailableException($e),
+            'MS_UNAVAILABLE' => new StateServiceUnavailableException($e),
+            'TIMEOUT' => new TimeoutException($e),
+            default => new ViesException($e),
+        };
     }
 }

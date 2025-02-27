@@ -2,6 +2,7 @@
 
 namespace Ddeboer\Vatin\Test\Vies;
 
+use Ddeboer\Vatin\Exception\InvalidInputException;
 use Ddeboer\Vatin\Vies\Client;
 use PHPUnit\Framework\TestCase;
 
@@ -18,5 +19,13 @@ class ClientTest extends TestCase
         $this->assertInstanceOf(\DateTimeImmutable::class, $response->date);
         $this->assertEquals('---', $response->name);
         $this->assertEquals('---', $response->address);
+    }
+
+    public function testInvalidInputException(): void
+    {
+        $this->expectException(InvalidInputException::class);
+
+        $client = new Client();
+        $client->checkVat('XYZ', '123');
     }
 }
